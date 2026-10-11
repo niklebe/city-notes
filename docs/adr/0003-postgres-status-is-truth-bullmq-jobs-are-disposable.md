@@ -1,0 +1,3 @@
+# Postgres status is the truth; BullMQ jobs are disposable
+
+A Sighting's `status` in Postgres is the only authority on where it is in its lifecycle. The upload handler inserts the row and then enqueues `process-image`, using the Sighting id as the job id; the worker then runs `analyse`. A repeatable sweeper re-enqueues Sightings stuck in `uploaded` or `analysing`, so losing Redis or crashing between insert and enqueue never strands a Sighting. We chose this over a transactional outbox because there is one uploader and a few hundred rows, so the extra machinery buys nothing. Every job is idempotent, keyed by Sighting id plus prompt and taxonomy version, so a retry never pays for the same model call twice.

@@ -1,0 +1,3 @@
+# PostGIS Postgres is the single system of record
+
+All durable state (Sightings, Analyses, Overrides, Neighbourhood and District polygons) lives in one Postgres database with PostGIS; Redis holds only BullMQ job state. We considered MongoDB, which has `2dsphere` indexes and hosts fine on Coolify, but chose PostGIS because map and visualisation quality is a first-class goal and PostGIS brings vector-tile generation, clustering, grid binning and polygon containment in SQL. The data is also relational (Sighting, append-only Analysis runs, versioned Taxonomy), and a later duplicate-detection experiment can use pgvector. Switching would reopen the hosting and map-stack research for no gain at this scale.

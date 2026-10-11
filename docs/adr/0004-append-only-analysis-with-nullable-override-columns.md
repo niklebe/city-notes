@@ -1,0 +1,3 @@
+# Append-only Analysis rows with nullable Override columns on the Sighting
+
+Each run of the Analysis writes a new `analysis` row (model, prompt version, taxonomy version, raw output, generated fields, confidence, error class) and the Sighting points at its current one. Owner Overrides are nullable columns on the Sighting itself, and public reads use `coalesce(override, generated)`. We chose this over per-field generated/override column pairs, which would overwrite history on re-analysis, and over a generic override table, which is overkill for about eight fields. It makes a taxonomy change or model swap a non-destructive re-enqueue, and gives the model bake-off a natural home. It extends ADR 0001.
