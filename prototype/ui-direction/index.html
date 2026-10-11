@@ -2,7 +2,7 @@
 <!--
   PROTOTYPE — throwaway. Question (ticket "Prototype: list and map UI direction"):
   what should the photo-forward list + map UI look and feel like?
-  Three structurally different variants, switch with ?variant=A|B|C or the ←/→ keys / bottom bar.
+  Three variants (C updated after Owner verdict: wall left, map right, 50/50 split), switch with ?variant=A|B|C or the ←/→ keys / bottom bar.
   Mock data only. Photos are SVG placeholders. Category slugs are invented for the mock
   (the real Taxonomy list is not enumerated in the repo yet).
   Run: open this file in a browser (needs internet for MapLibre + OpenFreeMap tiles).
@@ -72,14 +72,17 @@
   .B .tcard img { height:150px; object-fit:cover; }
 
   /* ---------- Variant C: wall / hall of shame ---------- */
-  .C { padding:0 0 110px; background:#1b1b1f; color:#f5f1e6; min-height:100vh; }
+  .C { display:grid; grid-template-columns:1fr 1fr; height:100vh; background:#1b1b1f; color:#f5f1e6; }
+  .C .left { overflow-y:auto; padding-bottom:110px; }
+  .C .mapwrap { position:relative; border-left:1px solid #000; }
+  @media (max-width: 800px) { .C { grid-template-columns:1fr; grid-template-rows:45vh 1fr; } .C .mapwrap { order:-1; border:0; } }
   .C header { padding:18px 18px 10px; }
   .C h1 { margin:0; font-size:34px; letter-spacing:-1px; }
   .C h1 span { color:#ffd23f; }
   .C .sub { color:#a9a69b; margin:2px 0 12px; }
   .C .filters button { background:#2a2a30; color:#f5f1e6; border-color:#55555e; }
   .C .filters button.on { background:#ffd23f; color:#111; border-color:#ffd23f; }
-  .C .wall { columns: 3 280px; column-gap:12px; padding:0 18px; }
+  .C .wall { columns: 2 200px; column-gap:12px; padding:0 18px; }
   .C .tile { break-inside:avoid; margin-bottom:12px; position:relative; border-radius:6px; overflow:hidden; background:#000; }
   .C .tile .stamp { position:absolute; top:8px; left:8px; background:#ffd23f; color:#111; font-weight:800;
     transform:rotate(-4deg); padding:2px 8px; font-size:12px; letter-spacing:1px; }
@@ -91,7 +94,7 @@
   .C .strip h3 { margin:0 0 8px; font-size:13px; color:#a9a69b; letter-spacing:1px; text-transform:uppercase; }
   .C .bar { display:flex; align-items:center; gap:8px; font-size:13px; margin:3px 0; }
   .C .bar i { display:block; height:10px; background:#ffd23f; border-radius:2px; }
-  .C #map { height:300px; border-radius:8px; margin-top:12px; }
+  .C #map { position:absolute; inset:0; }
   .C .chip { background:#2a2a30; border-color:#55555e; color:#f5f1e6; }
   .C .chip.rid-legendary { background:#ffd23f; color:#111; }
 </style>
@@ -175,7 +178,7 @@ const SEV_LABEL = { nuisance:{en:'nuisance',el:'ενόχληση'}, hazard:{en:'
 // ------------------------------------------------------------------ state
 const q = new URLSearchParams(location.search);
 const VARIANTS = ['A','B','C'];
-const NAMES = { A:'Feed + sticky map', B:'Map-first + photo tray', C:'Wall of shame' };
+const NAMES = { A:'Feed + sticky map', B:'Map-first + photo tray', C:'Wall + 50% map' };
 let variant = VARIANTS.includes(q.get('variant')) ? q.get('variant') : 'A';
 let lang = q.get('lang') === 'el' ? 'el' : 'en';
 let state = { cat:null, sev:null, rid:null, hot:null };
@@ -292,7 +295,7 @@ const render = {
     visible().forEach(s => byHood[s.hood] = (byHood[s.hood]||0) + RID_ORDER[s.rid]);
     const hoods = Object.entries(byHood).sort((a,b)=>b[1]-a[1]);
     const max = hoods.length ? hoods[0][1] : 1;
-    return `<div class="C">
+    return `<div class="C"><div class="left">
       <header><h1>Redi<span>culous</span> Athens</h1>
       <div class="sub">${lang==='el'?'Η πόλη, όπως είναι.':'The city, as it is.'} ${visible().length} sightings.</div>
       ${filterBar()}</header>
@@ -304,7 +307,8 @@ const render = {
         </div>`).join('')}</div>
       <div class="strip"><h3>${lang==='el'?'Κατάταξη γειτονιών':'Neighbourhood league table'}</h3>
         ${hoods.map(([h,v]) => `<div class="bar"><span style="width:110px">${h}</span><i style="width:${v/max*60}%"></i><span>${v}</span></div>`).join('')}
-        <div id="map"></div></div>
+      </div></div>
+      <div class="mapwrap"><div id="map"></div></div>
     </div>`;
   },
 };
@@ -312,7 +316,7 @@ const render = {
 function draw() {
   document.getElementById('app').innerHTML = render[variant]();
   const el = document.getElementById('map');
-  if (el) mountMap(el, { zoom: variant==='C' ? 12.6 : 13.4 }); else { map && map.remove(); map = null; markers = {}; }
+  if (el) mountMap(el, { zoom: 13.4 }); else { map && map.remove(); map = null; markers = {}; }
   document.getElementById('lang').innerHTML =
     ['en','el'].map(l=>`<button class="${lang===l?'on':''}" data-lang="${l}">${l.toUpperCase()}</button>`).join('');
   document.getElementById('switcher').innerHTML =
