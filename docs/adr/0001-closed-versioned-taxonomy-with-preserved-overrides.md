@@ -1,0 +1,3 @@
+# Closed, versioned taxonomy; Owner overrides preserve the generated value
+
+Each Sighting has exactly one Category from a closed, versioned Taxonomy (including `other` and `unclassifiable`), grouped by Origin, with Severity and Ridiculousness as separate small enums. We chose this over free-form tags so the filters, map styling and per-category experiments stay stable and the structured-output schema stays enforceable. The cost is that a taxonomy change means reclassifying old Sightings, so every Analysis records the taxonomy version that produced it. When the Owner overrides a generated field, the original generated value is kept next to the override; the public view shows the override, and the original remains available for re-analysis and for judging model quality.
