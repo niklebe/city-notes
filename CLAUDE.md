@@ -22,6 +22,8 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 
 <!-- one line per tool: - [<tool>](docs/vendor/<tool>/) — what it covers, version -->
 
+- [Anthropic Claude API](docs/vendor/anthropic/) — vision, structured outputs, multilingual support, models, pricing, errors, rate limits, batch, TypeScript SDK; fetched 2026-10-11 from platform.claude.com (`llms-index.md` lists every other page as a `.md` URL to fetch on demand)
+
 ## Git workflow
 
 - Commit directly to the working branch (`main`); do not open pull requests unless explicitly asked.
