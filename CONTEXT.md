@@ -36,6 +36,10 @@ _Avoid_: Description, title
 The funny line about the problem. Generated, in Greek and English, written in the same pass as the Caption rather than translated.
 _Avoid_: Roast, punchline, description
 
+**Tone**:
+The comedic register a Joke is written in (for example deadpan reporter or mock-bureaucrat). Varies from Sighting to Sighting and may differ between the Greek and English Joke of the same Sighting, each chosen for what fits its language best.
+_Avoid_: Style, voice, persona, mood
+
 **Override**:
 An Owner's correction of any generated field. The original generated value is kept alongside it.
 _Avoid_: Edit, fix
@@ -91,5 +95,5 @@ _Avoid_: Posted at
 ### Lifecycle
 
 **Status**:
-Where a Sighting is in its life: `uploaded`, `analysing`, `published`, `needs-review`, `failed`. Sightings with a real Category publish automatically; an `unclassifiable` result waits in `needs-review` until the Owner overrides its Category or hides it.
+Where a Sighting is in its life: `uploaded`, `analysing`, `published`, `needs-review`, `failed`. Sightings with a real Category publish automatically; an `unclassifiable` result, a Note that contradicts the photo, or an Analysis that was refused or produced unusable output waits in `needs-review` until the Owner overrides its Category or hides it.
 _Avoid_: State, stage
