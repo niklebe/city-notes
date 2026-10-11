@@ -1,0 +1,349 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Question (ticket "Prototype: list and map UI direction"):
+  what should the photo-forward list + map UI look and feel like?
+  Three structurally different variants, switch with ?variant=A|B|C or the ←/→ keys / bottom bar.
+  Mock data only. Photos are SVG placeholders. Category slugs are invented for the mock
+  (the real Taxonomy list is not enumerated in the repo yet).
+  Run: open this file in a browser (needs internet for MapLibre + OpenFreeMap tiles).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — Rediculous Athens UI</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<style>
+  :root { --ink:#1b1b1f; --paper:#faf7f0; --accent:#e4572e; --muted:#6b6b73; --line:#e3ddd0; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.4 system-ui, sans-serif; color:var(--ink); background:var(--paper); }
+  button { font:inherit; cursor:pointer; }
+  .chip { display:inline-block; padding:2px 8px; border-radius:99px; font-size:12px; border:1px solid var(--line); background:#fff; }
+  .chip.sev-dangerous { background:#ffd9d2; border-color:#e4572e; }
+  .chip.sev-hazard { background:#ffecc7; border-color:#e0a100; }
+  .chip.rid-legendary { background:#1b1b1f; color:#ffd23f; border-color:#1b1b1f; }
+  .chip.rid-notable { background:#fff3b0; }
+  .chip.tone { font-style:italic; color:var(--muted); }
+  .photo { width:100%; display:block; background:#ccc; }
+  .lang { position:fixed; top:10px; right:10px; z-index:50; display:flex; gap:4px; }
+  .lang button, .filters button { border:1px solid var(--ink); background:#fff; border-radius:99px; padding:3px 10px; }
+  .lang button.on, .filters button.on { background:var(--ink); color:#fff; }
+  .filters { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .filters .sep { color:var(--muted); font-size:12px; margin-left:6px; }
+  #switcher { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); z-index:100;
+    background:#111; color:#fff; border-radius:99px; padding:6px 10px; display:flex; gap:10px; align-items:center;
+    box-shadow:0 4px 16px rgba(0,0,0,.35); font-size:13px; }
+  #switcher button { background:none; border:0; color:#fff; font-size:18px; padding:0 6px; }
+  .maplibregl-popup-content { padding:0; border-radius:10px; overflow:hidden; width:240px; }
+  .pin { width:34px; height:34px; border-radius:50%; border:3px solid #fff; box-shadow:0 1px 6px rgba(0,0,0,.5);
+    background-size:cover; background-position:center; cursor:pointer; }
+  .pin.legendary { border-color:#ffd23f; width:42px; height:42px; }
+  .pin.hot { outline:3px solid var(--accent); z-index:5; }
+
+  /* ---------- Variant A: feed + sticky map ---------- */
+  .A { display:grid; grid-template-columns: minmax(360px, 520px) 1fr; height:100vh; }
+  .A .feed { overflow-y:auto; padding:0 0 90px; }
+  .A header { padding:14px 16px 8px; position:sticky; top:0; background:var(--paper); z-index:3; border-bottom:1px solid var(--line); }
+  .A h1 { margin:0 0 8px; font-size:20px; }
+  .A article { border-bottom:1px solid var(--line); padding-bottom:14px; }
+  .A article.hot { background:#fff4ee; }
+  .A .meta { padding:8px 16px 0; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .A .joke { padding:6px 16px 0; font-size:19px; font-weight:600; line-height:1.25; }
+  .A .cap { padding:4px 16px 0; color:var(--muted); font-size:13px; }
+  .A .where { padding:4px 16px 0; color:var(--muted); font-size:12px; }
+  .A .mapwrap { position:relative; }
+  .A #map { position:absolute; inset:0; }
+  @media (max-width: 800px) { .A { grid-template-columns: 1fr; } .A .mapwrap { display:none; } }
+
+  /* ---------- Variant B: map-first + bottom carousel ---------- */
+  .B { position:relative; height:100vh; }
+  .B #map { position:absolute; inset:0; }
+  .B .top { position:absolute; top:10px; left:10px; right:90px; z-index:5; background:rgba(250,247,240,.94);
+    border-radius:12px; padding:8px 10px; max-width:760px; }
+  .B .top b { font-size:16px; margin-right:8px; }
+  .B .tray { position:absolute; left:0; right:0; bottom:56px; z-index:5; display:flex; gap:10px; overflow-x:auto;
+    padding:8px 10px; scroll-snap-type:x mandatory; }
+  .B .tcard { flex:0 0 min(300px, 78vw); scroll-snap-align:center; background:#fff; border-radius:14px; overflow:hidden;
+    box-shadow:0 2px 10px rgba(0,0,0,.25); border:3px solid transparent; }
+  .B .tcard.hot { border-color:var(--accent); }
+  .B .tcard .b { padding:8px 10px 10px; }
+  .B .tcard .j { font-weight:600; margin-top:4px; }
+  .B .tcard img { height:150px; object-fit:cover; }
+
+  /* ---------- Variant C: wall / hall of shame ---------- */
+  .C { padding:0 0 110px; background:#1b1b1f; color:#f5f1e6; min-height:100vh; }
+  .C header { padding:18px 18px 10px; }
+  .C h1 { margin:0; font-size:34px; letter-spacing:-1px; }
+  .C h1 span { color:#ffd23f; }
+  .C .sub { color:#a9a69b; margin:2px 0 12px; }
+  .C .filters button { background:#2a2a30; color:#f5f1e6; border-color:#55555e; }
+  .C .filters button.on { background:#ffd23f; color:#111; border-color:#ffd23f; }
+  .C .wall { columns: 3 280px; column-gap:12px; padding:0 18px; }
+  .C .tile { break-inside:avoid; margin-bottom:12px; position:relative; border-radius:6px; overflow:hidden; background:#000; }
+  .C .tile .stamp { position:absolute; top:8px; left:8px; background:#ffd23f; color:#111; font-weight:800;
+    transform:rotate(-4deg); padding:2px 8px; font-size:12px; letter-spacing:1px; }
+  .C .tile .over { position:absolute; left:0; right:0; bottom:0; padding:28px 10px 10px;
+    background:linear-gradient(transparent, rgba(0,0,0,.88)); }
+  .C .tile .j { font-weight:700; font-size:16px; line-height:1.2; }
+  .C .tile .c { font-size:12px; color:#cfcbbd; margin-top:3px; }
+  .C .strip { margin:18px; padding:12px; background:#2a2a30; border-radius:8px; }
+  .C .strip h3 { margin:0 0 8px; font-size:13px; color:#a9a69b; letter-spacing:1px; text-transform:uppercase; }
+  .C .bar { display:flex; align-items:center; gap:8px; font-size:13px; margin:3px 0; }
+  .C .bar i { display:block; height:10px; background:#ffd23f; border-radius:2px; }
+  .C #map { height:300px; border-radius:8px; margin-top:12px; }
+  .C .chip { background:#2a2a30; border-color:#55555e; color:#f5f1e6; }
+  .C .chip.rid-legendary { background:#ffd23f; color:#111; }
+</style>
+</head>
+<body>
+<div class="lang" id="lang"></div>
+<div id="app"></div>
+<div id="switcher"></div>
+
+<script>
+// ------------------------------------------------------------------ mock data
+const CATS = {
+  'pothole':            { el:'Λακκούβα',            en:'Pothole',              origin:'Neglect',        color:'#7a5c3e', icon:'🕳️' },
+  'broken-pavement':    { el:'Σπασμένο πεζοδρόμιο', en:'Broken pavement',      origin:'Neglect',        color:'#9a8f7a', icon:'🧱' },
+  'blocked-sidewalk':   { el:'Κατειλημμένο πεζοδρόμιο', en:'Blocked sidewalk', origin:'Misuse',         color:'#3d6fb5', icon:'🛵' },
+  'exposed-wires':      { el:'Γυμνά καλώδια',       en:'Exposed wires',        origin:'Neglect',        color:'#c9a400', icon:'⚡' },
+  'ramp-to-nowhere':    { el:'Ράμπα στο πουθενά',   en:'Ramp to nowhere',      origin:'Municipal-made', color:'#2e8b6a', icon:'♿' },
+  'overflowing-bin':    { el:'Υπερχειλίζων κάδος',  en:'Overflowing bin',      origin:'Neglect',        color:'#5b7a3a', icon:'🗑️' },
+  'missing-cover':      { el:'Χαμένο καπάκι',       en:'Missing cover',        origin:'Neglect',        color:'#444',    icon:'⚠️' },
+  'pole-in-path':       { el:'Στύλος στη μέση',     en:'Pole in the path',     origin:'Municipal-made', color:'#8c4a8c', icon:'🚏' },
+};
+const TONES = { 'deadpan-reporter':'Deadpan reporter','mock-bureaucrat':'Mock bureaucrat','greek-tragedy':'Greek tragedy',
+  'noir-detective':'Noir detective','exasperated-local':'Exasperated local','nature-documentary':'Nature documentary',
+  'kafeneio-uncle':'Kafeneio uncle','dry-british-understatement':'Dry understatement' };
+const S = (id,cat,sev,rid,hood,street,lat,lng,days,cap,joke,tones,conf='high',note=null) =>
+  ({id,cat,sev,rid,hood,street,lat,lng,days,cap,joke,tones,conf,note});
+const DATA = [
+  S(1,'pothole','hazard','notable','Koukaki','Veikou',37.9660,23.7222,1,
+    {en:'A deep pothole in the middle of the road.',el:'Βαθιά λακκούβα στη μέση του δρόμου.'},
+    {en:'Not a pothole — a municipal swimming pool, awaiting its ribbon-cutting.',el:'Δεν είναι λακκούβα, είναι δημοτική πισίνα που περιμένει εγκαίνια.'},
+    {en:'mock-bureaucrat',el:'kafeneio-uncle'}),
+  S(2,'blocked-sidewalk','nuisance','mild','Psyrri','Karaiskaki',37.9790,23.7230,2,
+    {en:'Six scooters parked across the whole sidewalk.',el:'Έξι μηχανάκια παρκαρισμένα σε όλο το πεζοδρόμιο.'},
+    {en:'The pedestrian is an endangered species here; this is their former habitat.',el:'Ο πεζός είναι είδος υπό εξαφάνιση· αυτό ήταν ο φυσικός του βιότοπος.'},
+    {en:'nature-documentary',el:'exasperated-local'}),
+  S(3,'ramp-to-nowhere','nuisance','legendary','Plaka','Adrianou',37.9743,23.7295,3,
+    {en:'An accessibility ramp that ends at a wall.',el:'Ράμπα προσβασιμότητας που καταλήγει σε τοίχο.'},
+    {en:'A ramp to a wall: the only accessible route to the city’s finest brick.',el:'Ράμπα προς τοίχο: η προσβάσιμη διαδρομή προς το καλύτερο τούβλο της πόλης.'},
+    {en:'deadpan-reporter',el:'greek-tragedy'},'high','Σοβαρά τώρα;'),
+  S(4,'exposed-wires','dangerous','notable','Exarcheia','Valtetsiou',37.9868,23.7345,4,
+    {en:'Live-looking wires hanging from an open junction box.',el:'Καλώδια κρέμονται από ανοιχτό κουτί διακλάδωσης.'},
+    {en:'A modest installation piece titled “Please do not touch”.',el:'Μικρή εγκατάσταση τέχνης με τίτλο «Παρακαλώ μην αγγίζετε».'},
+    {en:'dry-british-understatement',el:'noir-detective'},'medium'),
+  S(5,'pole-in-path','hazard','legendary','Monastiraki','Ermou',37.9761,23.7261,5,
+    {en:'A traffic pole planted in the centre of the pedestrian path.',el:'Στύλος κυκλοφορίας φυτεμένος στο κέντρο του διαδρόμου.'},
+    {en:'Urban planning’s boldest slalom course. Gold medal: whoever finds the bypass.',el:'Το πιο τολμηρό σλάλομ του πολεοδομικού σχεδιασμού. Χρυσό μετάλλιο σε όποιον βρει την παράκαμψη.'},
+    {en:'sports-commentator',el:'exasperated-local'}),
+  S(6,'broken-pavement','nuisance','mild','Pangrati','Empedokleous',37.9689,23.7459,6,
+    {en:'Cracked and lifted paving slabs.',el:'Σπασμένες και ανασηκωμένες πλάκες πεζοδρομίου.'},
+    {en:'The paving is not broken, merely redecorating itself in a rustic style.',el:'Το πεζοδρόμιο δεν έσπασε, απλώς ανακαινίζεται σε ρουστίκ στυλ.'},
+    {en:'travel-brochure',el:'mock-bureaucrat'}),
+  S(7,'overflowing-bin','nuisance','notable','Omonia','Menandrou',37.9840,23.7279,7,
+    {en:'A bin overflowing onto the pavement.',el:'Κάδος που ξεχειλίζει στο πεζοδρόμιο.'},
+    {en:'The bin has reached full capacity and, like many of us, started leaking into the weekend.',el:'Ο κάδος έφτασε στο όριό του και, όπως πολλοί από εμάς, ξεχείλισε στο Σαββατοκύριακο.'},
+    {en:'deadpan-reporter',el:'kafeneio-uncle'}),
+  S(8,'missing-cover','dangerous','mild','Thissio','Apostolou Pavlou',37.9763,23.7195,9,
+    {en:'An open tree pit with no grate or cover.',el:'Ανοιχτή φυτεία δέντρου χωρίς σχάρα.'},
+    {en:'A tree-pit with the lid off. The tree seems to prefer it that way.',el:'Λάκκος δέντρου χωρίς καπάκι. Το δέντρο φαίνεται να το προτιμά.'},
+    {en:'dry-british-understatement',el:'noir-detective'},'low'),
+  S(9,'pothole','nuisance','legendary','Kolonaki','Skoufa',37.9788,23.7406,10,
+    {en:'A pothole patched with a slightly different shade of asphalt.',el:'Λακκούβα μπαλωμένη με ελαφρώς διαφορετική απόχρωση ασφάλτου.'},
+    {en:'The repair is a pothole’s portrait, painted in asphalt. Several are on display.',el:'Η επιδιόρθωση είναι πορτρέτο της λακκούβας σε άσφαλτο. Εκτίθενται αρκετά.'},
+    {en:'noir-detective',el:'greek-tragedy'}),
+  S(10,'blocked-sidewalk','hazard','notable','Syntagma','Voulis',37.9755,23.7348,11,
+    {en:'A car parked fully on the sidewalk, a stroller squeezed past.',el:'Αυτοκίνητο πάνω στο πεζοδρόμιο, καρότσι στριμώχνεται δίπλα.'},
+    {en:'Car parking: now a sidewalk sport with a one-stroller pass limit.',el:'Παρκάρισμα: πλέον άθλημα πεζοδρομίου με όριο ένα καρότσι.'},
+    {en:'sports-commentator',el:'mock-bureaucrat'}),
+  S(11,'broken-pavement','hazard','mild','Koukaki','Drakou',37.9632,23.7270,12,
+    {en:'A missing slab exposing the soil beneath.',el:'Πλάκα που λείπει αφήνοντας το χώμα ακάλυπτο.'},
+    {en:'One slab on vacation. The soil is pleased to see daylight.',el:'Μια πλάκα έφυγε διακοπές. Το χώμα χαίρεται το φως.'},
+    {en:'deadpan-reporter',el:'exasperated-local'}),
+  S(12,'ramp-to-nowhere','nuisance','notable','Gazi','Konstantinoupoleos',37.9776,23.7107,14,
+    {en:'A ramp blocked at the top by a bollard.',el:'Ράμπα με κολωνάκι στην κορυφή.'},
+    {en:'The ramp was installed; the dream of using it was left at the bollard.',el:'Η ράμπα μπήκε· το όνειρο να τη χρησιμοποιήσεις έμεινε στο κολωνάκι.'},
+    {en:'greek-tragedy',el:'greek-tragedy'}),
+];
+const RID_ORDER = { legendary:3, notable:2, mild:1 };
+const RID_LABEL = { legendary:{en:'LEGENDARY',el:'ΘΡΥΛΙΚΟ'}, notable:{en:'notable',el:'αξιοσημείωτο'}, mild:{en:'mild',el:'ήπιο'} };
+const SEV_LABEL = { nuisance:{en:'nuisance',el:'ενόχληση'}, hazard:{en:'hazard',el:'κίνδυνος'}, dangerous:{en:'dangerous',el:'επικίνδυνο'} };
+
+// ------------------------------------------------------------------ state
+const q = new URLSearchParams(location.search);
+const VARIANTS = ['A','B','C'];
+const NAMES = { A:'Feed + sticky map', B:'Map-first + photo tray', C:'Wall of shame' };
+let variant = VARIANTS.includes(q.get('variant')) ? q.get('variant') : 'A';
+let lang = q.get('lang') === 'el' ? 'el' : 'en';
+let state = { cat:null, sev:null, rid:null, hot:null };
+let map = null, markers = {};
+
+// ------------------------------------------------------------------ helpers
+function photo(s, h=220) {
+  const c = CATS[s.cat];
+  const seed = s.id * 37;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="${h*600/400}" viewBox="0 0 600 ${h*600/400}">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c.color}"/><stop offset="1" stop-color="#222"/></linearGradient></defs>
+    <rect width="100%" height="100%" fill="url(#g)"/>
+    ${[...Array(9)].map((_,i)=>`<rect x="${(seed*(i+3))%520}" y="${(seed*(i+7))%(h*1.4)}" width="${40+(i*23)%90}" height="${10+(i*11)%40}" fill="rgba(255,255,255,.08)" transform="rotate(${(seed+i*13)%30-15} 300 200)"/>`).join('')}
+    <text x="300" y="${h*0.9}" font-size="120" text-anchor="middle">${c.icon}</text>
+    <text x="300" y="${h*1.25}" font-size="18" fill="rgba(255,255,255,.55)" text-anchor="middle" font-family="sans-serif">placeholder photo #${s.id}</text></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+function visible() {
+  return DATA.filter(s => (!state.cat || s.cat===state.cat) && (!state.sev || s.sev===state.sev) && (!state.rid || s.rid===state.rid));
+}
+function chips(s) {
+  return `<span class="chip">${CATS[s.cat].icon} ${CATS[s.cat][lang]}</span>
+    <span class="chip sev-${s.sev}">${SEV_LABEL[s.sev][lang]}</span>
+    <span class="chip rid-${s.rid}">${RID_LABEL[s.rid][lang]}</span>`;
+}
+function tone(s) { return `<span class="chip tone">${TONES[s.tones[lang]]}</span>`; }
+function ago(d) { return d === 1 ? (lang==='el'?'χθες':'yesterday') : (lang==='el' ? `πριν ${d} μέρες` : `${d} days ago`); }
+function filterBar(dark) {
+  const mk = (key, vals, labelFn) => vals.map(v => `<button class="${state[key]===v?'on':''}" data-f="${key}" data-v="${v}">${labelFn(v)}</button>`).join('');
+  return `<div class="filters">
+    ${mk('cat', Object.keys(CATS), v => CATS[v].icon+' '+CATS[v][lang])}
+    <span class="sep">|</span>
+    ${mk('sev', ['nuisance','hazard','dangerous'], v => SEV_LABEL[v][lang])}
+    <span class="sep">|</span>
+    ${mk('rid', ['mild','notable','legendary'], v => RID_LABEL[v][lang])}
+    ${(state.cat||state.sev||state.rid) ? `<button data-clear>✕ ${lang==='el'?'καθαρισμός':'clear'}</button>`:''}
+  </div>`;
+}
+
+// ------------------------------------------------------------------ map
+function popupHtml(s) {
+  return `<img class="photo" src="${photo(s)}" style="height:130px;object-fit:cover">
+    <div style="padding:8px 10px"><div style="font-weight:700">${s.cat && CATS[s.cat].icon} ${s.joke[lang]}</div>
+    <div style="color:#6b6b73;font-size:12px;margin-top:4px">${s.cap[lang]} · ${s.hood}</div></div>`;
+}
+function mountMap(el, opts={}) {
+  if (map) { map.remove(); map = null; markers = {}; }
+  map = new maplibregl.Map({ container: el, style: 'https://tiles.openfreemap.org/styles/liberty',
+    center:[23.7275, 37.9755], zoom: opts.zoom || 13.4, attributionControl:{compact:true} });
+  map.addControl(new maplibregl.NavigationControl({showCompass:false}), 'top-right');
+  syncMarkers();
+}
+function syncMarkers() {
+  if (!map) return;
+  const ids = new Set(visible().map(s=>s.id));
+  Object.entries(markers).forEach(([id,m]) => { if(!ids.has(+id)) { m.remove(); delete markers[id]; } });
+  visible().forEach(s => {
+    if (markers[s.id]) return;
+    const el = document.createElement('div');
+    el.className = 'pin' + (s.rid==='legendary' ? ' legendary':'');
+    el.style.backgroundImage = `url("${photo(s,80)}")`;
+    el.dataset.id = s.id;
+    el.onmouseenter = () => hot(s.id, false);
+    el.onclick = e => { e.stopPropagation(); hot(s.id, true); };
+    const m = new maplibregl.Marker({element:el}).setLngLat([s.lng,s.lat])
+      .setPopup(new maplibregl.Popup({offset:22, closeButton:false}).setHTML(popupHtml(s))).addTo(map);
+    markers[s.id] = m;
+  });
+}
+function hot(id, scroll) {
+  state.hot = id;
+  document.querySelectorAll('[data-sid]').forEach(n => n.classList.toggle('hot', +n.dataset.sid === id));
+  document.querySelectorAll('.pin').forEach(n => n.classList.toggle('hot', +n.dataset.id === id));
+  if (scroll) {
+    const n = document.querySelector(`[data-sid="${id}"]`);
+    n && n.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+    const s = DATA.find(d=>d.id===id);
+    map && map.easeTo({center:[s.lng,s.lat], duration:400});
+  }
+}
+
+// ------------------------------------------------------------------ variants
+const render = {
+  A() {
+    const list = visible();
+    return `<div class="A">
+      <div class="feed">
+        <header><h1>Rediculous Athens</h1>${filterBar()}</header>
+        ${list.map(s => `<article data-sid="${s.id}">
+            <img class="photo" src="${photo(s)}" style="height:300px;object-fit:cover">
+            <div class="meta">${chips(s)} ${tone(s)}</div>
+            <div class="joke">${s.joke[lang]}</div>
+            <div class="cap">${s.cap[lang]}</div>
+            ${s.note ? `<div class="cap">“${s.note}” — Owner</div>`:''}
+            <div class="where">${s.hood}, ${s.street} · ${ago(s.days)}</div>
+          </article>`).join('') || '<p style="padding:16px">Nothing matches.</p>'}
+      </div>
+      <div class="mapwrap"><div id="map"></div></div>
+    </div>`;
+  },
+  B() {
+    const list = visible();
+    return `<div class="B"><div id="map"></div>
+      <div class="top"><b>Rediculous Athens</b>${filterBar()}</div>
+      <div class="tray">${list.map(s => `<div class="tcard" data-sid="${s.id}">
+          <img class="photo" src="${photo(s)}">
+          <div class="b">${chips(s)}<div class="j">${s.joke[lang]}</div>
+          <div style="font-size:12px;color:#6b6b73;margin-top:4px">${s.cap[lang]} · ${s.hood} · ${ago(s.days)}</div></div>
+        </div>`).join('')}</div></div>`;
+  },
+  C() {
+    const list = visible().slice().sort((a,b) => RID_ORDER[b.rid]-RID_ORDER[a.rid] || a.days-b.days);
+    const byHood = {};
+    visible().forEach(s => byHood[s.hood] = (byHood[s.hood]||0) + RID_ORDER[s.rid]);
+    const hoods = Object.entries(byHood).sort((a,b)=>b[1]-a[1]);
+    const max = hoods.length ? hoods[0][1] : 1;
+    return `<div class="C">
+      <header><h1>Redi<span>culous</span> Athens</h1>
+      <div class="sub">${lang==='el'?'Η πόλη, όπως είναι.':'The city, as it is.'} ${visible().length} sightings.</div>
+      ${filterBar()}</header>
+      <div class="wall">${list.map((s,i) => `<div class="tile" data-sid="${s.id}">
+          <img class="photo" src="${photo(s, i%3===0?330:230)}">
+          ${s.rid==='legendary' ? `<div class="stamp">${RID_LABEL.legendary[lang]}</div>`:''}
+          <div class="over"><div class="j">${s.joke[lang]}</div>
+            <div class="c">${s.cap[lang]} · ${s.hood}</div></div>
+        </div>`).join('')}</div>
+      <div class="strip"><h3>${lang==='el'?'Κατάταξη γειτονιών':'Neighbourhood league table'}</h3>
+        ${hoods.map(([h,v]) => `<div class="bar"><span style="width:110px">${h}</span><i style="width:${v/max*60}%"></i><span>${v}</span></div>`).join('')}
+        <div id="map"></div></div>
+    </div>`;
+  },
+};
+
+function draw() {
+  document.getElementById('app').innerHTML = render[variant]();
+  const el = document.getElementById('map');
+  if (el) mountMap(el, { zoom: variant==='C' ? 12.6 : 13.4 }); else { map && map.remove(); map = null; markers = {}; }
+  document.getElementById('lang').innerHTML =
+    ['en','el'].map(l=>`<button class="${lang===l?'on':''}" data-lang="${l}">${l.toUpperCase()}</button>`).join('');
+  document.getElementById('switcher').innerHTML =
+    `<button id="prev">←</button><span>${variant} — ${NAMES[variant]}</span><button id="next">→</button>`;
+  document.getElementById('prev').onclick = () => go(-1);
+  document.getElementById('next').onclick = () => go(1);
+  document.querySelectorAll('[data-sid]').forEach(n => {
+    n.onmouseenter = () => hot(+n.dataset.sid, false);
+    n.onclick = () => { hot(+n.dataset.sid, false); const s = DATA.find(d=>d.id===+n.dataset.sid);
+      if (map) { map.easeTo({center:[s.lng,s.lat], zoom:15, duration:500}); markers[s.id]?.togglePopup(); } };
+  });
+  document.body.style.background = variant==='C' ? '#1b1b1f' : '';
+}
+function go(d) {
+  variant = VARIANTS[(VARIANTS.indexOf(variant)+d+VARIANTS.length) % VARIANTS.length];
+  const u = new URL(location); u.searchParams.set('variant', variant); history.replaceState(null,'',u);
+  draw();
+}
+document.addEventListener('click', e => {
+  const f = e.target.closest('[data-f]');
+  if (f) { const {f:k, v} = f.dataset; state[k] = state[k]===v ? null : v; draw(); return; }
+  if (e.target.closest('[data-clear]')) { state.cat = state.sev = state.rid = null; draw(); return; }
+  const l = e.target.closest('[data-lang]');
+  if (l) { lang = l.dataset.lang; draw(); }
+});
+document.addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+  if (e.key === 'ArrowLeft') go(-1);
+  if (e.key === 'ArrowRight') go(1);
+});
+draw();
+</script>
+</body>
+</html>
