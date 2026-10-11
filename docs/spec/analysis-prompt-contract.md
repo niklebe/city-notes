@@ -29,6 +29,7 @@ Length limits live in the prompt; the provider schemas cannot enforce them. App 
 - Shortlist draw: 3 Tones per language, random, language-eligible, excluding the last 5 used in that language, and always containing at least one `gentle` Tone.
 - The model picks the best fit per language; the Greek and English Jokes may use different Tones and different jokes.
 - Greek is modern standard (demotic) Greek: no Greeklish, no katharevousa for effect.
+- Each Joke suits its own language's humour. The system prompt must tell the model to write each Joke the way a native speaker of that language would, using that language's comedic conventions, and not to reuse the same gag, wordplay or structure across the two languages. A Greek Joke that is the English one in Greek (or the reverse) is a defect.
 
 ### Tone list v1
 
@@ -46,6 +47,10 @@ Length limits live in the prompt; the provider schemas cannot enforce them. App 
 | `dry-british-understatement` | en | yes |
 
 The gentle flag on the last two was not discussed; it is proposed here (understatement is gentle, the kafeneio uncle is not) and can be changed with a `prompt_version` bump.
+
+## Bake-off rating flags
+
+The blind bake-off tags each ranked output with: `unnatural Greek`, `grammar/accent error`, `not funny but fine`, `inaccurate`, `offensive/unsafe to publish`, and `reads like a translation` (same gag as the other language's Joke for that photo). The last one measures the "suits its own language" rule above, so Greek and English are scored independently and a model that translates its own jokes shows up as such.
 
 ## Guardrails
 
