@@ -12,6 +12,16 @@ Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `
 
 Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
 
+## Tool docs
+
+- For every dev tool, library or service you use (Next.js, MapLibre, BullMQ, Coolify, PostGIS, the vision LLM API, etc.), search for its LLM-specific docs (`llms.txt` / `llms-full.txt`, "docs for AI" pages, MCP docs servers) before relying on memory.
+- Download what you find into `docs/vendor/<tool>/`, with the source URL and fetch date at the top of each file, and add a pointer to it in the index below.
+- Read the local copy first when working with that tool.
+
+### Vendored docs index
+
+<!-- one line per tool: - [<tool>](docs/vendor/<tool>/) — what it covers, version -->
+
 ## Git workflow
 
 - Commit directly to the working branch (`main`); do not open pull requests unless explicitly asked.
